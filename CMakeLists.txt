@@ -54,3 +54,48 @@ if (TINYGLTF3_INSTALL)
     ${TINYGLTF3_INSTALL_DIR}
   )
 endif ()
+
+# AthameAI/gatein: a compiled library and a CMake package, so consumers can
+#   find_package(tinygltf3 CONFIG REQUIRED)
+#   target_link_libraries(app PRIVATE tinygltf3::tinygltf3)
+# instead of compiling tiny_gltf_v3.c into each project. Static and
+# position-independent, so it links into shared libraries too; the
+# stdio-backed filesystem helpers are on (tg3_parse_file and friends).
+option(TINYGLTF3_BUILD_LIBRARY "Build and install the tinygltf3 library and CMake package" OFF)
+
+if (TINYGLTF3_BUILD_LIBRARY)
+  add_library(tinygltf3 STATIC tiny_gltf_v3.c)
+  add_library(tinygltf3::tinygltf3 ALIAS tinygltf3)
+  set_target_properties(tinygltf3 PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON
+    C_EXTENSIONS OFF
+    POSITION_INDEPENDENT_CODE ON
+  )
+  target_compile_definitions(tinygltf3 PRIVATE TINYGLTF3_ENABLE_FS)
+  target_include_directories(tinygltf3 PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  )
+  if (UNIX)
+    target_link_libraries(tinygltf3 PUBLIC m)
+  endif ()
+
+  include(CMakePackageConfigHelpers)
+  install(TARGETS tinygltf3 EXPORT tinygltf3Targets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  )
+  install(EXPORT tinygltf3Targets
+    NAMESPACE tinygltf3::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tinygltf3
+  )
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/tinygltf3Config.cmake
+    "include(\${CMAKE_CURRENT_LIST_DIR}/tinygltf3Targets.cmake)\n")
+  write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/tinygltf3ConfigVersion.cmake
+    VERSION 3.0.1 COMPATIBILITY SameMajorVersion)
+  install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/tinygltf3Config.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/tinygltf3ConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tinygltf3
+  )
+endif ()
